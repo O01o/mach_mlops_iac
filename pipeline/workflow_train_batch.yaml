@@ -1,0 +1,99 @@
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project_id: ${project_id}
+          - region: ${region}
+          - zone: ${zone}
+          - vpc_id: ${vpc_id}
+          - subnet_id: ${subnet_id}
+          - mlforge_uri: ${mlforge_uri}
+          - exclusive_lock_topic: ${exclusive_lock_topic}
+          - train_topic: ${train_topic}
+          - exclusive_lock_message: '${exclusive_lock_message}'
+    
+    
+    # ----------------------------------------------------------
+    # Lock for mutual exclusion
+    # ----------------------------------------------------------
+
+    - publish_message_to_exclusive_lock_topic:
+        call: googleapis.pubsub.v1.projects.topics.publish
+        args:
+            topic: '$${"projects/" + project_id + "/topics/" + exclusive_lock_topic}'
+            body:
+                messages:
+                - data: '$${base64.encode(json.encode(exclusive_lock_message))}'
+        result: publish_response
+    
+    - get_message_id:
+        assign:
+          - published_message_id: '$${publish_response.messageIds[0]}'
+
+
+    # ----------------------------------------------------------
+    # Execute mlforge batch job for model training
+    # ----------------------------------------------------------
+
+    - create_mlforge_batch_job:
+        call: http.post
+        args:
+            url: $${"https://googleapis.com/" + project_id + "/locations/" + region + "/jobs"}
+            query:
+                jobId: $${"mlops-train-job-" + string(int(sys.now()))}
+            auth:
+                type: OAuth2
+            body:
+                taskGroups:
+                    - taskSpec:
+                        runnables:
+                            - script:
+                                text: |
+                                    export mlforge_uri="http://${mlforge_uri}:8080"
+                                    uv run python train_model.py
+                computeResource:
+                    cpuMilli: 4000
+                    memoryMib: 8192
+                allocationPolicy:
+                    instances:
+                        - policy:
+                            machineType: g2-standard-4
+                    network:
+                        networkInterfaces:
+                            network: ${vpc_id}
+                            subnetwork: ${subnet_id}
+                            noExternalIpAddress: false
+
+
+    # ----------------------------------------------------------
+    # Unlock for mutual exclusion
+    # ----------------------------------------------------------
+
+    - pull_exclusive_lock_message:
+        call: googleapis.pubsub.v1.projects.subscriptions.pull
+        args:
+            subscription: '$${"projects/" + project_id + "/subscriptions/" + exclusive_lock_topic + "-sub"}'
+            body:
+                maxMessages: 10
+                returnImmediately: false
+        result: pull_response
+
+    - check_and_ack_message:
+        if: '$${map.get(pull_response, "receivedMessages") != null and len(pull_response.receivedMessages) > 0}'
+        switch:
+          - condition: '$${pull_response.receivedMessages[0].message.messageId == published_message_id}'
+            steps:
+              - ack_my_message:
+                  call: googleapis.pubsub.v1.projects.subscriptions.acknowledge
+                  args:
+                    subscription: '$${"projects/" + project_id + "/subscriptions/" + exclusive_lock_topic + "-sub"}'
+                    body:
+                      ackIds:
+                        - '$${pull_response.receivedMessages[0].ackId}'
+          - condition: true
+            steps:
+              - id_mismatch_log:
+                  call: sys.log
+                  args:
+                    text: "WARNING: Received message ID does not match the published message ID. Another process may have acquired the lock."

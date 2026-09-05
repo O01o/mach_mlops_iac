@@ -1,0 +1,16 @@
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project_id: ${project_id}
+          - topic: ${topic}
+          - message: '$${args.message}'
+    
+    - publish_message_to_topic:
+        call: googleapis.pubsub.v1.projects.topics.publish
+        args:
+        topic: '$${"projects/" + project_id + "/topics/" + topic}'
+        body:
+            messages:
+            - data: '$${base64.encode(json.encode(message))}'
