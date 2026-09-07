@@ -80,9 +80,8 @@ main:
         result: pull_response
 
     - check_and_ack_message:
-        if: '$${map.get(pull_response, "receivedMessages") != null and len(pull_response.receivedMessages) > 0}'
         switch:
-          - condition: '$${pull_response.receivedMessages[0].message.messageId == published_message_id}'
+          - condition: '$${map.get(pull_response, "receivedMessages") != null and len(pull_response.receivedMessages) > 0 and pull_response.receivedMessages[0].message.messageId == published_message_id}'
             steps:
               - ack_my_message:
                   call: googleapis.pubsub.v1.projects.subscriptions.acknowledge
