@@ -27,10 +27,6 @@ module "compute" {
   project_id = var.project_id
   image_root_path = "${var.region}-docker.pkg.dev/${var.project_id}"
   cloud_run_location = var.region
-  db_user = var.db_user
-  db_ip = var.db_ip
-  db_name = var.db_name
-  db_password = var.db_password
   bucket_name = module.storage.bucket
 
   depends_on = [module.network, module.storage]

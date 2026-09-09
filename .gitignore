@@ -45,4 +45,5 @@ terraform.rc
 # planout
 
 # Custom ignore rules for this project
+*.env
 /cert
