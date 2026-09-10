@@ -27,6 +27,8 @@ resource "google_cloud_run_v2_service" "mlforge" {
   location = var.cloud_run_location
 
   template {
+    service_account = var.mlforge_service_account_email
+
     volumes {
       name = "DB_CA_CERT"
 

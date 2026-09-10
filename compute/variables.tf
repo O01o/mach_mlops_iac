@@ -13,3 +13,7 @@ variable "cloud_run_location" {
 variable "bucket_name" {
   type = string
 }
+
+variable "mlforge_service_account_email" {
+  type = string
+}

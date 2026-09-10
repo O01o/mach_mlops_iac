@@ -3,27 +3,27 @@
 # ----------------------------------------------------------
 
 resource "google_service_account" "cloud_run_mlforge_sa" {
-  account_id = "cloud-run-mlforge-sa"
+  account_id   = "cloud-run-mlforge-sa"
   display_name = "Cloud Run MLForge Service Account"
 }
 
 resource "google_service_account" "cloud_run_train_api_sa" {
-  account_id = "cloud-run-train-api-sa"
+  account_id   = "cloud-run-train-api-sa"
   display_name = "Cloud Run Train API Service Account"
 }
 
 resource "google_service_account" "compute_train_batch_sa" {
-  account_id = "compute-train-batch-sa"
+  account_id   = "compute-train-batch-sa"
   display_name = "Compute Train Batch Service Account"
 }
 
 resource "google_service_account" "workflows_sa" {
-  account_id = "workflows-sa"
+  account_id   = "workflows-sa"
   display_name = "Workflows Execution Service Account"
 }
 
 resource "google_service_account" "github_actions_sa" {
-  account_id = "github-actions-sa"
+  account_id   = "github-actions-sa"
   display_name = "Workflows Execution Service Account"
 }
 
@@ -62,14 +62,14 @@ resource "google_project_iam_member" "compute_train_batch_cloud_run_invoker" {
 
 resource "google_project_iam_member" "workflows_compute_admin" {
   project = data.google_project.project.project_id
-  role = "roles/compute.admin"
-  member = "serviceAccount:${google_service_account.workflows_sa.email}"
+  role    = "roles/compute.admin"
+  member  = "serviceAccount:${google_service_account.workflows_sa.email}"
 }
 
 resource "google_project_iam_member" "workflows_pubsub_admin" {
   project = data.google_project.project.project_id
-  role = "roles/pubsub.admin"
-  member = "serviceAccount:${google_service_account.workflows_sa.email}"
+  role    = "roles/pubsub.admin"
+  member  = "serviceAccount:${google_service_account.workflows_sa.email}"
 }
 
 resource "google_project_iam_member" "ar_writer" {
