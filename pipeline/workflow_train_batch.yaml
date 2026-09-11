@@ -35,8 +35,8 @@ main:
         switch:
           - condition: '$${map.get(pull_response_exclusive_lock, "receivedMessages") == null}'
             steps:
-              - raise_message_format_error:
-                  raise: "Exclusive lock message format is incorrect."
+                - raise_exclusive_lock_message_format_error:
+                    raise: "Exclusive lock message format is incorrect."
           - condition: '$${len(pull_response_exclusive_lock.receivedMessages) > 0}'
             steps:
               - raise_exclusive_lock:
@@ -60,8 +60,8 @@ main:
         switch:
           - condition: '$${map.get(pull_response_train_topic, "receivedMessages") == null}'
             steps:
-              - raise_message_format_error:
-                  raise: "Train topic message format is incorrect."
+                - raise_train_topic_message_format_error:
+                    raise: "Train topic message format is incorrect."
           - condition: '$${len(pull_response_train_topic.receivedMessages) == 0}'
             steps:
               - raise_train_topic_message:
@@ -95,18 +95,12 @@ main:
             value: message
             in: '$${pull_response_train_topic.receivedMessages}'
             steps:
-                - container:
-                    imageUri: '$${train_batch_image}'
-                    entrypoint: uv
-                    commands:
-                        - run
-                        - python
-                        - train_model.py
-                    environment:
-                    variables:
-                        MLFORGE_URI: '$${mlforge_uri}'
-                        MESSAGE_ID: '$${message.messageId}'
-                        MESSAGE_BASE64: '$${message.message.data}'
+                - init_batch_job:
+                    assign:
+                        - batch_job_id: '$${"mlops-train-job-" + string(message.messageId)}'
+                        - batch_job_state: "QUEUED"
+                - create_mlforge_batch_job:
+                    call: http.post
                     args:
                         url: $${"https://batch.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/jobs"}
                         query:
@@ -117,12 +111,18 @@ main:
                             taskGroups:
                                 - taskSpec:
                                     runnables:
-                                        - script:
-                                            text: |
-                                                export mlforge_uri="http://${mlforge_uri}:8080"
-                                                export message_id="$${message.messageId}"
-                                                export message_base64="$${message.message.data}"
-                                                # ./batch
+                                        - container:
+                                            imageUri: '$${train_batch_image}'
+                                            entrypoint: uv
+                                            commands:
+                                                - run
+                                                - python
+                                                - train_model.py
+                                          environment:
+                                            variables:
+                                                MLFORGE_URI: '$${mlforge_uri}'
+                                                MESSAGE_ID: '$${message.messageId}'
+                                                PUBSUB_MESSAGE_DATA_B64: '$${message.message.data}'
                             computeResource:
                                 cpuMilli: 4000
                                 memoryMib: 8192
@@ -174,7 +174,7 @@ main:
     # Unlock for mutual exclusion
     # ----------------------------------------------------------
 
-    - pull_exclusive_lock_message:
+    - pull_exclusive_lock_message_for_unlock:
         call: googleapis.pubsub.v1.projects.subscriptions.pull
         args:
             subscription: '$${"projects/" + project_id + "/subscriptions/" + exclusive_lock_sub}'
@@ -187,8 +187,8 @@ main:
         switch:
           - condition: '$${map.get(pull_response_exclusive_lock, "receivedMessages") == null}'
             steps:
-              - raise_message_format_error:
-                  raise: "Exclusive lock message format is incorrect."
+                - raise_unlock_message_format_error:
+                    raise: "Exclusive lock message format is incorrect."
           - condition: '$${len(pull_response_exclusive_lock.receivedMessages) > 0 and pull_response_exclusive_lock.receivedMessages[0].message.messageId == published_message_id}'
             steps:
               - ack_my_message:
