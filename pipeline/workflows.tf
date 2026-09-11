@@ -19,8 +19,12 @@ resource "google_workflows_workflow" "train_batch" {
     vpc_id = var.vpc_id
     subnet_id = var.subnet_id
     mlforge_uri = var.mlforge_uri
+    train_batch_image = var.train_batch_image
+    train_batch_service_account = var.train_batch_service_account
     exclusive_lock_topic = google_pubsub_topic.exclusive_lock_topic.name
     train_topic = google_pubsub_topic.train_topic.name
+    exclusive_lock_sub = google_pubsub_subscription.exclusive_lock_sub.name
+    train_sub = google_pubsub_subscription.train_sub.name
     exclusive_lock_message = "exclusive_lock"
   })
 }

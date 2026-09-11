@@ -9,11 +9,65 @@ main:
           - vpc_id: ${vpc_id}
           - subnet_id: ${subnet_id}
           - mlforge_uri: ${mlforge_uri}
+          - train_batch_image: ${train_batch_image}
+          - train_batch_service_account: ${train_batch_service_account}
           - exclusive_lock_topic: ${exclusive_lock_topic}
           - train_topic: ${train_topic}
+          - exclusive_lock_sub: ${exclusive_lock_sub}
+          - train_sub: ${train_sub}
           - exclusive_lock_message: '${exclusive_lock_message}'
     
+
+    # ----------------------------------------------------------
+    # Check Exclusive Lock 
+    # ----------------------------------------------------------
     
+    - pull_exclusive_lock_message:
+        call: googleapis.pubsub.v1.projects.subscriptions.pull
+        args:
+            subscription: '$${"projects/" + project_id + "/subscriptions/" + exclusive_lock_sub}'
+            body:
+                maxMessages: 10
+                returnImmediately: false
+        result: pull_response_exclusive_lock
+
+    - check_exclusive_lock_message:
+        switch:
+          - condition: '$${map.get(pull_response_exclusive_lock, "receivedMessages") == null}'
+            steps:
+              - raise_message_format_error:
+                  raise: "Exclusive lock message format is incorrect."
+          - condition: '$${len(pull_response_exclusive_lock.receivedMessages) > 0}'
+            steps:
+              - raise_exclusive_lock:
+                  raise: "Exclusive lock is already acquired by another process."
+
+
+    # ----------------------------------------------------------
+    # Check Train Topic Messages
+    # ----------------------------------------------------------
+    
+    - pull_train_topic_message:
+        call: googleapis.pubsub.v1.projects.subscriptions.pull
+        args:
+            subscription: '$${"projects/" + project_id + "/subscriptions/" + train_sub}'
+            body:
+                maxMessages: 10
+                returnImmediately: false
+        result: pull_response_train_topic
+
+    - check_train_topic_message:
+        switch:
+          - condition: '$${map.get(pull_response_train_topic, "receivedMessages") == null}'
+            steps:
+              - raise_message_format_error:
+                  raise: "Train topic message format is incorrect."
+          - condition: '$${len(pull_response_train_topic.receivedMessages) == 0}'
+            steps:
+              - raise_train_topic_message:
+                  raise: "There are no messages in the train topic that need to be processed."
+
+
     # ----------------------------------------------------------
     # Lock for mutual exclusion
     # ----------------------------------------------------------
@@ -25,45 +79,95 @@ main:
             body:
                 messages:
                 - data: '$${base64.encode(json.encode(exclusive_lock_message))}'
-        result: publish_response
+        result: publish_response_exclusive_lock
     
     - get_message_id:
         assign:
-          - published_message_id: '$${publish_response.messageIds[0]}'
+          - published_message_id: '$${publish_response_exclusive_lock.messageIds[0]}'
 
 
     # ----------------------------------------------------------
     # Execute mlforge batch job for model training
     # ----------------------------------------------------------
 
-    - create_mlforge_batch_job:
-        call: http.post
-        args:
-            url: $${"https://googleapis.com/" + project_id + "/locations/" + region + "/jobs"}
-            query:
-                jobId: $${"mlops-train-job-" + string(int(sys.now()))}
-            auth:
-                type: OAuth2
-            body:
-                taskGroups:
-                    - taskSpec:
-                        runnables:
-                            - script:
-                                text: |
-                                    export mlforge_uri="http://${mlforge_uri}:8080"
-                                    uv run python train_model.py
-                computeResource:
-                    cpuMilli: 4000
-                    memoryMib: 8192
-                allocationPolicy:
-                    instances:
-                        - policy:
-                            machineType: g2-standard-4
-                    network:
-                        networkInterfaces:
-                            network: ${vpc_id}
-                            subnetwork: ${subnet_id}
-                            noExternalIpAddress: false
+    - loop_process:
+        for:
+            value: message
+            in: '$${pull_response_train_topic.receivedMessages}'
+            steps:
+                - container:
+                    imageUri: '$${train_batch_image}'
+                    entrypoint: uv
+                    commands:
+                        - run
+                        - python
+                        - train_model.py
+                    environment:
+                    variables:
+                        MLFORGE_URI: '$${mlforge_uri}'
+                        MESSAGE_ID: '$${message.messageId}'
+                        MESSAGE_BASE64: '$${message.message.data}'
+                    args:
+                        url: $${"https://batch.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/jobs"}
+                        query:
+                            jobId: $${batch_job_id}
+                        auth:
+                            type: OAuth2
+                        body:
+                            taskGroups:
+                                - taskSpec:
+                                    runnables:
+                                        - script:
+                                            text: |
+                                                export mlforge_uri="http://${mlforge_uri}:8080"
+                                                export message_id="$${message.messageId}"
+                                                export message_base64="$${message.message.data}"
+                                                # ./batch
+                            computeResource:
+                                cpuMilli: 4000
+                                memoryMib: 8192
+                            allocationPolicy:
+                                serviceAccount:
+                                    email: '$${train_batch_service_account}'
+                                instances:
+                                    - policy:
+                                        machineType: n4d-standard-2
+                                        # machineType: g2-standard-4
+                                network:
+                                    networkInterfaces:
+                                        network: '$${vpc_id}'
+                                        subnetwork: '$${subnet_id}'
+                                        noExternalIpAddress: false
+                - poll_mlforge_batch_job:
+                    call: http.get
+                    args:
+                        url: $${"https://batch.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/jobs/" + batch_job_id}
+                        auth:
+                            type: OAuth2
+                    result: batch_job_response
+                - update_batch_job_state:
+                    assign:
+                        - batch_job_state: '$${batch_job_response.body.status.state}'
+                - check_batch_job_state:
+                    switch:
+                        - condition: '$${batch_job_state == "SUCCEEDED"}'
+                          next: ack_train_message
+                        - condition: '$${batch_job_state == "FAILED" or batch_job_state == "DELETION_IN_PROGRESS" or batch_job_state == "DELETED"}'
+                          raise: "MLForge Batch job failed."
+                        - condition: true
+                          steps:
+                              - wait_for_batch_job:
+                                  call: sys.sleep
+                                  args:
+                                      seconds: 600
+                          next: poll_mlforge_batch_job
+                - ack_train_message:
+                    call: googleapis.pubsub.v1.projects.subscriptions.acknowledge
+                    args:
+                        subscription: '$${"projects/" + project_id + "/subscriptions/" + train_sub}'
+                        body:
+                            ackIds:
+                                - '$${message.ackId}'
 
 
     # ----------------------------------------------------------
@@ -73,23 +177,27 @@ main:
     - pull_exclusive_lock_message:
         call: googleapis.pubsub.v1.projects.subscriptions.pull
         args:
-            subscription: '$${"projects/" + project_id + "/subscriptions/" + exclusive_lock_topic + "-sub"}'
+            subscription: '$${"projects/" + project_id + "/subscriptions/" + exclusive_lock_sub}'
             body:
                 maxMessages: 10
                 returnImmediately: false
-        result: pull_response
+        result: pull_response_exclusive_lock
 
     - check_and_ack_message:
         switch:
-          - condition: '$${map.get(pull_response, "receivedMessages") != null and len(pull_response.receivedMessages) > 0 and pull_response.receivedMessages[0].message.messageId == published_message_id}'
+          - condition: '$${map.get(pull_response_exclusive_lock, "receivedMessages") == null}'
+            steps:
+              - raise_message_format_error:
+                  raise: "Exclusive lock message format is incorrect."
+          - condition: '$${len(pull_response_exclusive_lock.receivedMessages) > 0 and pull_response_exclusive_lock.receivedMessages[0].message.messageId == published_message_id}'
             steps:
               - ack_my_message:
                   call: googleapis.pubsub.v1.projects.subscriptions.acknowledge
                   args:
-                    subscription: '$${"projects/" + project_id + "/subscriptions/" + exclusive_lock_topic + "-sub"}'
+                    subscription: '$${"projects/" + project_id + "/subscriptions/" + exclusive_lock_sub}'
                     body:
                       ackIds:
-                        - '$${pull_response.receivedMessages[0].ackId}'
+                        - '$${pull_response_exclusive_lock.receivedMessages[0].ackId}'
           - condition: true
             steps:
               - id_mismatch_log:

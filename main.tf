@@ -48,6 +48,8 @@ module "pipeline" {
   subnet_id          = module.network.subnet_id
   mlforge_uri        = module.compute.mlforge_uri
   sa_email_workflows = google_service_account.workflows_sa.email
+  train_batch_image  = "${var.region}-docker.pkg.dev/${var.project_id}/mlops-train-batch/train-batch:latest"
+  train_batch_service_account = google_service_account.compute_train_batch_sa.email
 
   depends_on = [module.compute]
 }
