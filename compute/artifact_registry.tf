@@ -7,8 +7,8 @@ resource "google_artifact_registry_repository" "preprocessor" {
   }
 }
 
-resource "google_artifact_registry_repository" "train_batch" {
-  repository_id = "mlops-train-batch"
+resource "google_artifact_registry_repository" "swagger_ui" {
+  repository_id = "mlops-swagger-ui"
   format        = "DOCKER"
 
   lifecycle {
@@ -18,6 +18,15 @@ resource "google_artifact_registry_repository" "train_batch" {
 
 resource "google_artifact_registry_repository" "train_api" {
   repository_id = "mlops-train-api"
+  format        = "DOCKER"
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "google_artifact_registry_repository" "train_batch" {
+  repository_id = "mlops-train-batch"
   format        = "DOCKER"
 
   lifecycle {

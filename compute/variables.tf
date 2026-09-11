@@ -14,6 +14,18 @@ variable "bucket_name" {
   type = string
 }
 
+variable "swagger_ui_service_account_email" {
+  type = string
+}
+
+variable "train_api_service_account_email" {
+  type = string
+}
+
+variable "eval_api_service_account_email" {
+  type = string
+}
+
 variable "mlforge_service_account_email" {
   type = string
 }

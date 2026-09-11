@@ -28,8 +28,10 @@ module "compute" {
   image_root_path               = "${var.region}-docker.pkg.dev/${var.project_id}"
   cloud_run_location            = var.region
   bucket_name                   = module.storage.bucket
+  swagger_ui_service_account_email = google_service_account.cloud_run_swagger_ui_sa.email
+  train_api_service_account_email   = google_service_account.cloud_run_train_api_sa.email
+  eval_api_service_account_email    = google_service_account.cloud_run_eval_api_sa.email
   mlforge_service_account_email = google_service_account.cloud_run_mlforge_sa.email
-
   depends_on = [
     module.network,
     module.storage,

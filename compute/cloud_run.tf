@@ -1,8 +1,24 @@
+resource "google_cloud_run_v2_service" "swagger_ui" {
+  name     = "swagger-ui"
+  location = var.cloud_run_location
+
+  template {
+    service_account = var.swagger_ui_service_account_email
+
+    containers {
+      # image = "${var.image_root_path}/${var.repository_id_train_api}/train-api:latest"
+      image = "us-docker.pkg.dev/cloudrun/container/hello"
+    }
+  }
+}
+
 resource "google_cloud_run_v2_service" "train_api" {
   name     = "train-api"
   location = var.cloud_run_location
 
   template {
+    service_account = var.train_api_service_account_email
+
     containers {
       # image = "${var.image_root_path}/${var.repository_id_train_api}/train-api:latest"
       image = "us-docker.pkg.dev/cloudrun/container/hello"
@@ -15,6 +31,8 @@ resource "google_cloud_run_v2_service" "eval_api" {
   location = var.cloud_run_location
 
   template {
+    service_account = var.eval_api_service_account_email
+
     containers {
       # image = "${var.image_root_path}/${var.repository_id_eval_api}/eval-api:latest"
       image = "us-docker.pkg.dev/cloudrun/container/hello"
