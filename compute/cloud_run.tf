@@ -3,7 +3,7 @@ resource "google_cloud_run_v2_service" "swagger_ui" {
   location = var.cloud_run_location
 
   template {
-    service_account = var.swagger_ui_service_account_email
+    service_account = google_service_account.cloud_run_swagger_ui_sa.email
 
     containers {
       # image = "${var.image_root_path}/${var.repository_id_train_api}/train-api:latest"
@@ -17,7 +17,7 @@ resource "google_cloud_run_v2_service" "train_api" {
   location = var.cloud_run_location
 
   template {
-    service_account = var.train_api_service_account_email
+    service_account = google_service_account.cloud_run_train_api_sa.email
 
     containers {
       # image = "${var.image_root_path}/${var.repository_id_train_api}/train-api:latest"
@@ -31,7 +31,7 @@ resource "google_cloud_run_v2_service" "eval_api" {
   location = var.cloud_run_location
 
   template {
-    service_account = var.eval_api_service_account_email
+    service_account = google_service_account.cloud_run_eval_api_sa.email
 
     containers {
       # image = "${var.image_root_path}/${var.repository_id_eval_api}/eval-api:latest"
@@ -45,7 +45,7 @@ resource "google_cloud_run_v2_service" "mlforge" {
   location = var.cloud_run_location
 
   template {
-    service_account = var.mlforge_service_account_email
+    service_account = google_service_account.cloud_run_mlforge_sa.email
 
     volumes {
       name = "DB_CA_CERT"

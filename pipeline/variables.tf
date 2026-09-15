@@ -22,14 +22,6 @@ variable "mlforge_uri" {
   type = string
 }
 
-variable "sa_email_workflows" {
-  type = string
-}
-
 variable "train_batch_image" {
-  type = string
-}
-
-variable "train_batch_service_account" {
   type = string
 }
