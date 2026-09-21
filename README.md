@@ -17,7 +17,16 @@ Please complete this setup if you haven't finished installing below yet.
 - [Google Cloud CLI](https://cloud.google.com/cli)
 - [Terraform CLI](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
 
-### Google Cloud Project
+### Setting TiDB
+
+In most cases, machine learning experiments require monitoring metrics such as loss curves.  
+Therefore, this reuires the MySQL engine when using mlforge. mlforge doesn't support PostgreSQL, and you don't touch it directly, so it doesn't need to support.  
+For serverless SQL, ti is recommended to use [TiDB Cloud Serverless](https://pingcap.co.jp/tidb/) as an external SaaS solution because it excels at cost savings and high operational efficiency.  
+
+After signing up and signing in, please create new MySQL engine at the location greographically closest. A certificate will be generated upon you create it, so please keep this.  
+After that, create new database. In the database, please create new user for access and grant appropriate roles.  
+
+### Setting Google Cloud Project
 
 Please create your Google Cloud account and project if you haven't setup. Do not use an existing project, please create new one.  
 If you want to organize and manage your projects in a hierarchical directory structure, you may need to register a domain before. I recommend to utilize [Cloudflare DNS](https://www.cloudflare.com/ja-jp/application-services/products/dns/).  
