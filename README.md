@@ -22,7 +22,7 @@ Please complete this setup if you haven't finished installing below yet.
 Please create your Google Cloud account and project if you haven't setup. Do not use an existing project, please create new one.  
 If you want to organize and manage your projects in a hierarchical directory structure, you may need to register a domain before. I recommend to utilize [Cloudflare DNS](https://www.cloudflare.com/ja-jp/application-services/products/dns/).  
 
-### Setting Secrets
+### Setting Secrets on Google Cloud Secret Manager
 
 And before you build resources with Terraform, you need to set secrets on Google Cloud Secret Manager.  
 This is managed by a project-by-project basis.  
