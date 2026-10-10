@@ -31,6 +31,12 @@ After that, create new database. In the database, please create new user for acc
 Please create your Google Cloud account and project if you haven't setup. Do not use an existing project, please create new one.  
 If you want to organize and manage your projects in a hierarchical directory structure, you may need to register a domain before. I recommend to utilize [Cloudflare DNS](https://www.cloudflare.com/ja-jp/application-services/products/dns/).  
 
+### Setting IAM Users or Groups
+
+This service is available only to users within the organization. And, as you manage the organization, you'll likely need to group its members. Therefore, please add groups as needed.  
+Swagger UI and mlforge, which run on Cloud Run, use the Identity-Aware Proxy (IAP) - an authorization system that allows specified users and groups from the organization to access the website via the console.  
+The settings of IAP for this project, the domain is set to `group:researchers@okinoshimanomizugami.com`, but please reconfigure this to the appropriate users or groups.  
+
 ### Setting Secrets on Google Cloud Secret Manager
 
 And before you build resources with Terraform, you need to set secrets on Google Cloud Secret Manager.  
@@ -67,3 +73,8 @@ terraform init
 terraform plan
 terraform apply
 ```
+
+### View Websites Running on Cloud Run
+
+Once you have completedd the setap above, please transit to Cloud Run services of Google Cloud console. Then, you can find `swagger-ui` and `mlforge`, and open the `https://<service-name>-<project number>.<region>.run.app`.  
+If you can see correct websites, that's all.  
