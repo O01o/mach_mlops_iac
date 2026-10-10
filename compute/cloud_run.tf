@@ -1,6 +1,8 @@
 resource "google_cloud_run_v2_service" "swagger_ui" {
   name     = "swagger-ui"
   location = var.cloud_run_location
+  ingress = "INGRESS_TRAFFIC_ALL"
+  iap_enabled = true
 
   template {
     service_account = google_service_account.cloud_run_swagger_ui_sa.email

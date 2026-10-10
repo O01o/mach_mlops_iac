@@ -18,5 +18,5 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.ref" = "assertion.ref"
   }
 
-  attribute_condition = "assertion.repository == 'O01o/mach_mlops_app'"
+  attribute_condition = "assertion.repository == '${var.github_owner}/${var.github_repository}'"
 }

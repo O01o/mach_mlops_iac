@@ -33,3 +33,20 @@ resource "google_project_iam_member" "sa_user" {
   role    = "roles/iam.serviceAccountUser"
   member  = "serviceAccount:${google_service_account.github_actions_sa.email}"
 }
+
+resource "google_project_iam_member" "github_wif" {
+  project = var.project_id
+  role    = "roles/iam.workloadIdentityUser"
+  member  = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_owner}/${var.github_repository}"
+}
+
+# ----------------------------------------------------------
+# Project Services
+# ----------------------------------------------------------
+
+resource "google_project_service" "iamcredentials" {
+  project = var.project_id
+  service = "iamcredentials.googleapis.com"
+
+  disable_on_destroy = false
+}
